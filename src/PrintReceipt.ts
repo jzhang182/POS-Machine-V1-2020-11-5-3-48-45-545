@@ -2,7 +2,7 @@ import { loadAllItems, loadPromotions } from './Dependencies'
 
 export function printReceipt(tags: string[]): string {
   const itemMap = preprocessTags(tags)
-  const models = calculateDiscountedSubtotal(itemMap, loadPromotions())
+  const models = calculateDiscountedSubtotal(itemMap)
   return renderReceipt(models)
 }
 
@@ -26,21 +26,32 @@ function preprocessTags(tags: string[]) {
   return itemMap
 }
 
-function calculateDiscountedSubtotal(itemMap: Map<string, ItemModel>, promotions: object[]) {
-
-  return new Map<string, ItemModel>()
+function calculateDiscountedSubtotal(itemMap: Map<string, ItemModel>) {
+  const promotedItems = loadPromotions()[0].barcodes
+  return Array.from(itemMap).map(x => {
+    if (promotedItems.find(barcode => barcode === x[1].barcode) !== null) {
+      x[1].subtotal = x[1].price * (x[1].quantity - Math.floor(x[1].quantity / 3))
+    }
+    else { x[1].subtotal = x[1].price * x[1].quantity }
+    return x[1]
+  })
 }
 
-function renderReceipt(itemMap: Map<string, ItemModel>): string {
-
-  return `***<store earning no money>Receipt ***
-Name：Sprite，Quantity：5 bottles，Unit：3.00(yuan)，Subtotal：12.00(yuan)
-Name：Litchi，Quantity：2.5 pounds，Unit：15.00(yuan)，Subtotal：37.50(yuan)
-Name：Instant Noodles，Quantity：3 bags，Unit：4.50(yuan)，Subtotal：9.00(yuan)
-----------------------
-Total：58.50(yuan)
-Discounted prices：7.50(yuan)
+function renderReceipt(itemModels: ItemModel[]): string {
+  let total = 0
+  let discount = 0
+  let ret = `***<store earning no money>Receipt ***\n`
+  itemModels.forEach(x => {
+    total += x.subtotal
+    discount += (x.quantity * x.price - x.subtotal)
+    ret += `Name：${x.name}，Quantity：${x.quantity} ${x.unit}s，Unit：${x.price.toFixed(2)}(yuan)，Subtotal：${x.subtotal.toFixed(2)}(yuan)\n`
+  })
+  ret +=
+    `----------------------
+Total：${total.toFixed(2)}(yuan)
+Discounted prices：${discount.toFixed(2)}(yuan)
 **********************`
+  return ret
 }
 
 interface ItemModel {
@@ -50,11 +61,4 @@ interface ItemModel {
   price: number,
   quantity: number,
   subtotal: number
-}
-
-interface Item {
-  barcode: string,
-  name: string,
-  unit: string,
-  price: number
 }
